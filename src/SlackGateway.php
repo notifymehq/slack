@@ -28,6 +28,13 @@ class SlackGateway implements GatewayInterface
     protected $endpoint = 'https://slack.com/api';
 
     /**
+     * True if we use Guzzle 6, false if we use Guzzle 5.
+     *
+     * @var bool
+     */
+    protected $guzzle6;
+
+    /**
      * Create a new slack gateway instance.
      *
      * @param \GuzzleHttp\Client $client
@@ -39,6 +46,7 @@ class SlackGateway implements GatewayInterface
     {
         $this->client = $client;
         $this->config = $config;
+        $this->guzzle6 = method_exists($this->client, 'getConfig');
     }
 
     /**
@@ -90,6 +98,8 @@ class SlackGateway implements GatewayInterface
     {
         $success = false;
 
+        $bodyKey = $this->guzzle6 ? 'form_params' : 'body';
+
         $rawResponse = $this->client->post($url, [
             'exceptions'      => false,
             'timeout'         => '80',
@@ -97,11 +107,11 @@ class SlackGateway implements GatewayInterface
             'headers'         => [
                 'Accept' => 'application/json',
             ],
-            'body' => $params,
+            $bodyKey => $params,
         ]);
 
         if (substr((string) $rawResponse->getStatusCode(), 0, 1) === '2') {
-            $response = $rawResponse->json();
+            $response = $this->guzzle6 ? json_decode($rawResponse->getBody(), true) : $rawResponse->json();
             $success = $response['ok'];
         } else {
             $response = $this->responseError($rawResponse);
